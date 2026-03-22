@@ -42,7 +42,15 @@ Show recent recorded summaries:
 ```bash
 ./codex-watch report --latest
 ./codex-watch report --limit 5
+./codex-watch report --session <session_id>
+./codex-watch report --json
 ```
+
+`report` behavior:
+
+- single result: detailed multi-line view
+- multiple results: compact list view
+- `--json`: machine-readable output for scripting
 
 ## Debugging
 
