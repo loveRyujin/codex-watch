@@ -3,11 +3,12 @@ package session
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -58,7 +59,16 @@ func FindCandidate(root string, opts MatchOptions) (*Candidate, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	sort.Slice(candidates, func(i, j int) bool { return betterCandidate(candidates[i], candidates[j], opts) })
+	slices.SortFunc(candidates, func(a, b Candidate) int {
+		switch {
+		case betterCandidate(a, b, opts):
+			return -1
+		case betterCandidate(b, a, opts):
+			return 1
+		default:
+			return 0
+		}
+	})
 	return &candidates[0], nil
 }
 
@@ -161,7 +171,7 @@ func betterCandidate(a, b Candidate, opts MatchOptions) bool {
 	if a.State.StartedAt.Equal(b.State.StartedAt) {
 		return a.ModTime.After(b.ModTime)
 	}
-	return a.State.StartedAt.Before(b.State.StartedAt)
+	return cmp.Compare(a.State.StartedAt.UnixNano(), b.State.StartedAt.UnixNano()) < 0
 }
 
 func DetectMatchOptions(args []string, cwd string, startedAfter time.Time) MatchOptions {

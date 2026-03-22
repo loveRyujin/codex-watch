@@ -1,11 +1,12 @@
 package session
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -71,8 +72,8 @@ func LoadAll() ([]Summary, error) {
 		}
 		summaries = append(summaries, summary)
 	}
-	sort.Slice(summaries, func(i, j int) bool {
-		return summaries[i].StartedAt.After(summaries[j].StartedAt)
+	slices.SortFunc(summaries, func(a, b Summary) int {
+		return cmp.Compare(b.StartedAt.UnixNano(), a.StartedAt.UnixNano())
 	})
 	return summaries, nil
 }

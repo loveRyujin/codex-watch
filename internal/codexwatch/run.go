@@ -1,6 +1,7 @@
 package codexwatch
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -47,8 +48,7 @@ func Run(args []string) (int, error) {
 	}
 
 	done := make(chan struct{})
-	var once sync.Once
-	stop := func() { once.Do(func() { close(done) }) }
+	stop := sync.OnceFunc(func() { close(done) })
 	defer stop()
 
 	restore, err := makeInputRaw()
@@ -175,7 +175,7 @@ func handleSignals(cmd *exec.Cmd, stop func()) {
 	}
 }
 
-func watchSession(state *session.State, opts session.MatchOptions, debugf func(string, ...interface{}), done <-chan struct{}) {
+func watchSession(state *session.State, opts session.MatchOptions, debugf func(string, ...any), done <-chan struct{}) {
 	root := filepath.Join(userHomeDir(), ".codex", "sessions")
 	debugf("watching sessions under %s for cwd=%s mode=%d explicit_session=%s", root, opts.CWD, opts.Mode, opts.ExplicitSession)
 	for {
@@ -212,8 +212,7 @@ func exitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	var exitErr *exec.ExitError
-	if ok := errorAs(err, &exitErr); ok {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exitErr.ExitCode()
 	}
 	return 1
@@ -235,18 +234,6 @@ func resolveTargetCWD(args []string) (string, error) {
 		}
 	}
 	return cwd, nil
-}
-
-func errorAs(err error, target interface{}) bool {
-	switch v := target.(type) {
-	case **exec.ExitError:
-		exitErr, ok := err.(*exec.ExitError)
-		if ok {
-			*v = exitErr
-			return true
-		}
-	}
-	return false
 }
 
 type statusRenderer struct {
@@ -378,9 +365,9 @@ func (t *terminalOutput) withLock(fn func(out *os.File)) {
 	fn(t.out)
 }
 
-func newDebugLogger() func(string, ...interface{}) {
+func newDebugLogger() func(string, ...any) {
 	if os.Getenv("CODEX_WATCH_DEBUG") == "" {
-		return func(string, ...interface{}) {}
+		return func(string, ...any) {}
 	}
 	logger := log.New(os.Stderr, "codex-watch debug: ", log.LstdFlags|log.Lmicroseconds)
 	return logger.Printf

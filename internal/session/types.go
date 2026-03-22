@@ -7,8 +7,8 @@ type Summary struct {
 	ThreadID                  string    `json:"thread_id,omitempty"`
 	Model                     string    `json:"model"`
 	Cwd                       string    `json:"cwd,omitempty"`
-	StartedAt                 time.Time `json:"started_at"`
-	EndedAt                   time.Time `json:"ended_at"`
+	StartedAt                 time.Time `json:"started_at,omitzero"`
+	EndedAt                   time.Time `json:"ended_at,omitzero"`
 	ElapsedMS                 int64     `json:"elapsed_ms"`
 	InputTokens               int64     `json:"input_tokens"`
 	CachedInputTokens         int64     `json:"cached_input_tokens"`
