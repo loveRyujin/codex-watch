@@ -15,6 +15,11 @@ type Summary struct {
 	OutputTokens              int64     `json:"output_tokens"`
 	ReasoningOutputTokens     int64     `json:"reasoning_output_tokens"`
 	TotalTokens               int64     `json:"total_tokens"`
+	LastInputTokens           int64     `json:"last_input_tokens"`
+	LastCachedInputTokens     int64     `json:"last_cached_input_tokens"`
+	LastOutputTokens          int64     `json:"last_output_tokens"`
+	LastReasoningOutputTokens int64     `json:"last_reasoning_output_tokens"`
+	LastTotalTokens           int64     `json:"last_total_tokens"`
 	ContextWindow             int64     `json:"context_window"`
 	ContextUsedPercent        float64   `json:"context_used_percent"`
 	RateLimitPrimaryPercent   float64   `json:"rate_limit_primary_percent"`
@@ -28,5 +33,6 @@ type Summary struct {
 
 type State struct {
 	Summary
-	LastEventAt time.Time
+	LastEventAt   time.Time
+	ObservedStart time.Time
 }

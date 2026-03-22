@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,5 +37,26 @@ func TestSaveAndLoadAll(t *testing.T) {
 	}
 	if got := filepath.Dir(path); got == "" {
 		t.Fatalf("empty dir")
+	}
+}
+
+func TestSaveSkipsEmptySummary(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", tmp)
+	summary := Summary{
+		Model:     "unknown",
+		StartedAt: time.Unix(100, 0).UTC(),
+		EndedAt:   time.Unix(120, 0).UTC(),
+		Status:    "success",
+	}
+	if _, err := Save(summary); !errors.Is(err, ErrSkipSave) {
+		t.Fatalf("Save error = %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(tmp, "codex-watch", "sessions"))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no persisted summaries, got %d", len(entries))
 	}
 }

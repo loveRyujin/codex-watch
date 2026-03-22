@@ -114,7 +114,7 @@ func printDetailedSummary(summary session.Summary) {
 	fmt.Printf("  output: %d\n", summary.OutputTokens)
 	fmt.Printf("  reasoning_output: %d\n", summary.ReasoningOutputTokens)
 	fmt.Printf("  total: %d\n", summary.TotalTokens)
-	fmt.Printf("context_used: %.1f%%\n", summary.ContextUsedPercent)
+	fmt.Printf("turn_context_used: %.1f%%\n", summary.ContextUsedPercent)
 	fmt.Printf("rate_limit_primary: %.1f%%\n", summary.RateLimitPrimaryPercent)
 	fmt.Printf("rate_limit_secondary: %.1f%%\n", summary.RateLimitSecondaryPercent)
 	fmt.Printf("estimated_cost: %s\n", formatCost(summary))

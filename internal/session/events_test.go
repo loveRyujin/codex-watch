@@ -14,11 +14,14 @@ func TestApplyTokenCountEvent(t *testing.T) {
 	if state.TotalTokens != 63131 {
 		t.Fatalf("total tokens = %d", state.TotalTokens)
 	}
+	if state.LastTotalTokens != 16988 {
+		t.Fatalf("last total tokens = %d", state.LastTotalTokens)
+	}
 	if !state.EstimatedCostKnown {
 		t.Fatalf("expected estimated cost to be known")
 	}
-	if state.ContextUsedPercent <= 0 {
-		t.Fatalf("expected context usage percent to be set")
+	if state.ContextUsedPercent <= 0 || state.ContextUsedPercent >= 100 {
+		t.Fatalf("unexpected context usage percent: %.2f", state.ContextUsedPercent)
 	}
 }
 

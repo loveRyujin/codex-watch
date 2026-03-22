@@ -3,12 +3,15 @@ package session
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 )
+
+var ErrSkipSave = errors.New("skip saving empty summary")
 
 func StoreDir() (string, error) {
 	stateHome := os.Getenv("XDG_STATE_HOME")
@@ -27,14 +30,14 @@ func StoreDir() (string, error) {
 }
 
 func Save(summary Summary) (string, error) {
+	if !ShouldSave(summary) {
+		return "", ErrSkipSave
+	}
 	dir, err := StoreDir()
 	if err != nil {
 		return "", err
 	}
-	id := summary.SessionID
-	if id == "" {
-		id = "unknown"
-	}
+	id := summaryFileID(summary)
 	filename := fmt.Sprintf("%s-%s.json", summary.StartedAt.UTC().Format("20060102T150405Z"), sanitize(id))
 	path := filepath.Join(dir, filename)
 	data, err := json.MarshalIndent(summary, "", "  ")
@@ -76,6 +79,21 @@ func LoadAll() ([]Summary, error) {
 		return cmp.Compare(b.StartedAt.UnixNano(), a.StartedAt.UnixNano())
 	})
 	return summaries, nil
+}
+
+func ShouldSave(summary Summary) bool {
+	return summary.SessionID != "" ||
+		summary.ThreadID != "" ||
+		(summary.Model != "" && summary.Model != "unknown") ||
+		summary.InputTokens > 0 ||
+		summary.CachedInputTokens > 0 ||
+		summary.OutputTokens > 0 ||
+		summary.ReasoningOutputTokens > 0 ||
+		summary.TotalTokens > 0
+}
+
+func summaryFileID(summary Summary) string {
+	return cmp.Or(summary.SessionID, summary.ThreadID, "unknown")
 }
 
 func sanitize(value string) string {

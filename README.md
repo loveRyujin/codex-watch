@@ -6,7 +6,7 @@
 
 - wraps interactive `codex`, including `resume --last`
 - tails the matching session file under `~/.codex/sessions`
-- displays model, elapsed time, token totals, context usage, rate limit, and estimated cost
+- displays model, elapsed time, token totals, recent-turn context usage, rate limit, and estimated cost
 - persists a normalized summary under `~/.local/state/codex-watch/sessions/`
 - exposes a simple `report` command for recent runs
 
@@ -70,6 +70,7 @@ Current debug output focuses on:
 ## Current Limitations
 
 - estimated cost uses an internal price table and is only approximate
+- `turn` in the status bar reflects recent-turn token usage relative to the model context window, not Codex's own internal `window left` metric
 - terminal redraw behavior is still best-effort and may flicker depending on terminal/TUI interaction
 - if session matching fails, Codex still runs but the status bar may stay empty or show fallback values
 - the project currently relies on the observed `codex-cli 0.115.0` local session JSONL format

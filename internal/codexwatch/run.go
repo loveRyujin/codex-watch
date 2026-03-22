@@ -44,7 +44,8 @@ func Run(args []string) (int, error) {
 			StartedAt: start,
 			Status:    "running",
 		},
-		LastEventAt: start,
+		LastEventAt:   start,
+		ObservedStart: start,
 	}
 
 	done := make(chan struct{})
@@ -60,6 +61,7 @@ func Run(args []string) (int, error) {
 	debugf := newDebugLogger()
 	targetCWD, _ := resolveTargetCWD(codexArgs)
 	matchOpts := session.DetectMatchOptions(codexArgs, targetCWD, start)
+	applyReservedBottomLine(ptmx)
 
 	go copyInput(ptmx, done)
 	go copyOutput(terminal, ptmx, done)
@@ -81,7 +83,7 @@ func Run(args []string) (int, error) {
 	exitCode := exitCode(waitErr)
 	state.ExitCode = exitCode
 	state.EndedAt = time.Now()
-	state.ElapsedMS = state.EndedAt.Sub(state.StartedAt).Milliseconds()
+	state.ElapsedMS = state.EndedAt.Sub(elapsedStart(state)).Milliseconds()
 	if state.Status == "running" {
 		if waitErr == nil {
 			state.Status = "success"
@@ -89,7 +91,9 @@ func Run(args []string) (int, error) {
 			state.Status = "error"
 		}
 	}
-	_, _ = session.Save(state.Summary)
+	if _, err := session.Save(state.Summary); err != nil && !errors.Is(err, session.ErrSkipSave) {
+		debugf("save summary error: %v", err)
+	}
 	renderer.Finish(state)
 	return exitCode, nil
 }
@@ -144,9 +148,7 @@ func copyOutput(dst io.Writer, src *os.File, done <-chan struct{}) {
 }
 
 func forwardResize(ptmx *os.File, done <-chan struct{}) {
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		_ = pty.InheritSize(os.Stdin, ptmx)
-	}
+	applyReservedBottomLine(ptmx)
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGWINCH)
 	defer signal.Stop(ch)
@@ -155,9 +157,7 @@ func forwardResize(ptmx *os.File, done <-chan struct{}) {
 		case <-done:
 			return
 		case <-ch:
-			if term.IsTerminal(int(os.Stdin.Fd())) {
-				_ = pty.InheritSize(os.Stdin, ptmx)
-			}
+			applyReservedBottomLine(ptmx)
 		}
 	}
 }
@@ -188,7 +188,8 @@ func watchSession(state *session.State, opts session.MatchOptions, debugf func(s
 		candidate, err := session.FindCandidate(root, opts)
 		if err == nil && candidate != nil {
 			debugf("matched session file %s session_id=%s model=%s", candidate.Path, candidate.State.SessionID, candidate.State.Model)
-			*state = candidate.State
+			state.Summary = candidate.State.Summary
+			state.LastEventAt = candidate.State.LastEventAt
 			state.Status = "running"
 			_ = session.TailFile(candidate.Path, state, done)
 			return
@@ -295,7 +296,7 @@ func (r *statusRenderer) render(state *session.State) {
 }
 
 func formatBar(state *session.State) string {
-	elapsed := time.Since(state.StartedAt).Truncate(time.Second)
+	elapsed := time.Since(elapsedStart(state)).Truncate(time.Second)
 	cost := "est N/A"
 	if state.EstimatedCostKnown {
 		cost = fmt.Sprintf("est $%.4f", state.EstimatedCostUSD)
@@ -305,7 +306,7 @@ func formatBar(state *session.State) string {
 		model = "unknown"
 	}
 	return fmt.Sprintf(
-		"[%s] %s | in %d | cached %d | out %d | reason %d | total %d | ctx %.1f%% | rl %.1f%% | %s",
+		"[%s] %s | in %d | cached %d | out %d | reason %d | total %d | turn %.1f%% | rl %.1f%% | %s",
 		model,
 		elapsed,
 		state.InputTokens,
@@ -317,6 +318,13 @@ func formatBar(state *session.State) string {
 		state.RateLimitPrimaryPercent,
 		cost,
 	)
+}
+
+func elapsedStart(state *session.State) time.Time {
+	if !state.ObservedStart.IsZero() {
+		return state.ObservedStart
+	}
+	return state.StartedAt
 }
 
 func terminalWidth(out *os.File) int {
@@ -346,6 +354,20 @@ func truncate(value string, width int) string {
 		return value[:width]
 	}
 	return strings.TrimSpace(value[:width-3]) + "..."
+}
+
+func applyReservedBottomLine(ptmx *os.File) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return
+	}
+	size, err := pty.GetsizeFull(os.Stdin)
+	if err != nil || size == nil {
+		return
+	}
+	if size.Rows > 1 {
+		size.Rows--
+	}
+	_ = pty.Setsize(ptmx, size)
 }
 
 type terminalOutput struct {

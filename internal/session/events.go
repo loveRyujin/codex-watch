@@ -40,6 +40,7 @@ type eventMsgPayload struct {
 
 type usageInfo struct {
 	TotalTokenUsage    usageTotals `json:"total_token_usage"`
+	LastTokenUsage     usageTotals `json:"last_token_usage"`
 	ModelContextWindow int64       `json:"model_context_window"`
 }
 
@@ -134,6 +135,11 @@ func applyEventMessage(state *State, payload eventMsgPayload) {
 			state.OutputTokens = payload.Info.TotalTokenUsage.OutputTokens
 			state.ReasoningOutputTokens = payload.Info.TotalTokenUsage.ReasoningOutputTokens
 			state.TotalTokens = payload.Info.TotalTokenUsage.TotalTokens
+			state.LastInputTokens = payload.Info.LastTokenUsage.InputTokens
+			state.LastCachedInputTokens = payload.Info.LastTokenUsage.CachedInputTokens
+			state.LastOutputTokens = payload.Info.LastTokenUsage.OutputTokens
+			state.LastReasoningOutputTokens = payload.Info.LastTokenUsage.ReasoningOutputTokens
+			state.LastTotalTokens = payload.Info.LastTokenUsage.TotalTokens
 			state.ContextWindow = payload.Info.ModelContextWindow
 		}
 		if payload.RateLimits != nil {
@@ -154,7 +160,11 @@ func applyEventMessage(state *State, payload eventMsgPayload) {
 
 func recomputeDerived(state *State) {
 	if state.ContextWindow > 0 {
-		state.ContextUsedPercent = (float64(state.TotalTokens) / float64(state.ContextWindow)) * 100
+		contextTokens := state.LastTotalTokens
+		if contextTokens <= 0 {
+			contextTokens = state.LastInputTokens + state.LastCachedInputTokens
+		}
+		state.ContextUsedPercent = (float64(contextTokens) / float64(state.ContextWindow)) * 100
 	}
 	if state.Model != "" {
 		cost, ok := pricing.Estimate(state.Model, state.InputTokens, state.CachedInputTokens, state.OutputTokens, state.ReasoningOutputTokens)
