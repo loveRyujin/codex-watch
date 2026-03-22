@@ -15,6 +15,8 @@ func Run(args []string) error {
 	fs.SetOutput(nil)
 	latest := fs.Bool("latest", false, "show latest session")
 	sessionID := fs.String("session", "", "show specific session id")
+	status := fs.String("status", "", "filter by status")
+	model := fs.String("model", "", "filter by model")
 	limit := fs.Int("limit", 5, "max sessions to show")
 	asJSON := fs.Bool("json", false, "emit JSON")
 	if err := fs.Parse(args); err != nil {
@@ -30,7 +32,13 @@ func Run(args []string) error {
 		return nil
 	}
 
-	filtered := filterSummaries(summaries, *latest, *sessionID, *limit)
+	filtered := filterSummaries(summaries, filterOptions{
+		latest:    *latest,
+		sessionID: *sessionID,
+		status:    *status,
+		model:     *model,
+		limit:     *limit,
+	})
 	if len(filtered) == 0 {
 		return fmt.Errorf("no sessions matched")
 	}
@@ -42,25 +50,42 @@ func Run(args []string) error {
 	return nil
 }
 
-func filterSummaries(summaries []session.Summary, latest bool, sessionID string, limit int) []session.Summary {
-	if limit <= 0 {
-		limit = 5
+type filterOptions struct {
+	latest    bool
+	sessionID string
+	status    string
+	model     string
+	limit     int
+}
+
+func filterSummaries(summaries []session.Summary, opts filterOptions) []session.Summary {
+	if opts.limit <= 0 {
+		opts.limit = 5
 	}
-	filtered := make([]session.Summary, 0, min(limit, len(summaries)))
+	filtered := make([]session.Summary, 0, min(opts.limit, len(summaries)))
 	for _, summary := range summaries {
-		if latest && len(filtered) == 0 {
-			filtered = append(filtered, summary)
-			break
-		}
-		if sessionID != "" && summary.SessionID != sessionID {
+		if !matchesFilters(summary, opts) {
 			continue
 		}
 		filtered = append(filtered, summary)
-		if !latest && len(filtered) >= limit {
+		if opts.latest || len(filtered) >= opts.limit {
 			break
 		}
 	}
 	return filtered
+}
+
+func matchesFilters(summary session.Summary, opts filterOptions) bool {
+	if opts.sessionID != "" && summary.SessionID != opts.sessionID {
+		return false
+	}
+	if opts.status != "" && !strings.EqualFold(summary.Status, opts.status) {
+		return false
+	}
+	if opts.model != "" && !strings.EqualFold(summary.Model, opts.model) {
+		return false
+	}
+	return true
 }
 
 func printJSON(summaries []session.Summary) error {
