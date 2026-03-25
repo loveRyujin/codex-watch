@@ -45,6 +45,9 @@ func FindCandidate(root string, opts MatchOptions) (*Candidate, error) {
 		if err != nil {
 			continue
 		}
+		if !hasSnapshotData(state) {
+			continue
+		}
 		if state.Cwd != "" && opts.CWD != "" && state.Cwd != opts.CWD {
 			continue
 		}
@@ -124,10 +127,18 @@ func readSnapshot(path string) (State, time.Time, error) {
 			continue
 		}
 		if err := ApplyEvent(&state, append([]byte(nil), line...)); err != nil {
-			return State{}, time.Time{}, err
+			continue
 		}
 	}
 	return state, info.ModTime(), scanner.Err()
+}
+
+func hasSnapshotData(state State) bool {
+	return state.SessionID != "" ||
+		state.ThreadID != "" ||
+		state.Cwd != "" ||
+		(state.Model != "" && state.Model != "unknown") ||
+		state.LastEventAt.UnixNano() != 0
 }
 
 func listJSONL(root string) ([]string, error) {

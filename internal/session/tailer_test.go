@@ -89,6 +89,30 @@ func TestLooksLikeSessionIDRejectsInvalidParts(t *testing.T) {
 	}
 }
 
+func TestFindCandidateSkipsSnapshotWithoutUsableData(t *testing.T) {
+	root := t.TempDir()
+	badPath := filepath.Join(root, "broken.jsonl")
+	if err := os.WriteFile(badPath, []byte("{oops}\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile broken: %v", err)
+	}
+	copyFixture(t, root, "session_a.jsonl")
+
+	candidate, err := FindCandidate(root, MatchOptions{
+		CWD:          "/tmp/project-a",
+		StartedAfter: time.Date(2026, 3, 22, 2, 27, 0, 0, time.UTC),
+		Mode:         MatchModeFresh,
+	})
+	if err != nil {
+		t.Fatalf("FindCandidate: %v", err)
+	}
+	if candidate == nil {
+		t.Fatalf("expected candidate")
+	}
+	if candidate.State.SessionID != "019d1440-dd2f-7c31-b925-3158ba82cb2f" {
+		t.Fatalf("session id = %q", candidate.State.SessionID)
+	}
+}
+
 func copyFixture(t *testing.T, root, name string) string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", name))

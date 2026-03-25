@@ -88,3 +88,24 @@ func TestReadSnapshotSkipsTrailingBlankLine(t *testing.T) {
 		t.Fatalf("readSnapshot: %v", err)
 	}
 }
+
+func TestReadSnapshotIgnoresMalformedJSONLine(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	data := []byte("{oops}\n" +
+		`{"timestamp":"2026-03-22T02:26:40.000Z","type":"session_meta","payload":{"id":"019d1440-dd2f-7c31-b925-3158ba82cb2f","timestamp":"2026-03-22T02:26:40.000Z","cwd":"/tmp/project-a","model":"gpt-5"}}` + "\n" +
+		`{"timestamp":"2026-03-22T02:27:30.000Z","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"done"}}` + "\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	state, _, err := readSnapshot(path)
+	if err != nil {
+		t.Fatalf("readSnapshot: %v", err)
+	}
+	if state.SessionID != "019d1440-dd2f-7c31-b925-3158ba82cb2f" {
+		t.Fatalf("session id = %q", state.SessionID)
+	}
+	if state.Status != "success" {
+		t.Fatalf("status = %q", state.Status)
+	}
+}
