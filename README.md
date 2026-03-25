@@ -45,6 +45,7 @@ Show recent recorded summaries:
 ./codex-watch report --session <session_id>
 ./codex-watch report --status success
 ./codex-watch report --model gpt-5.4
+./codex-watch report --cwd /home/lee/github/codex-watch
 ./codex-watch report --json
 ```
 

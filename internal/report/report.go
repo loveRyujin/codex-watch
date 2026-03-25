@@ -17,6 +17,7 @@ func Run(args []string) error {
 	sessionID := fs.String("session", "", "show specific session id")
 	status := fs.String("status", "", "filter by status")
 	model := fs.String("model", "", "filter by model")
+	cwd := fs.String("cwd", "", "filter by working directory")
 	limit := fs.Int("limit", 5, "max sessions to show")
 	asJSON := fs.Bool("json", false, "emit JSON")
 	if err := fs.Parse(args); err != nil {
@@ -37,6 +38,7 @@ func Run(args []string) error {
 		sessionID: *sessionID,
 		status:    *status,
 		model:     *model,
+		cwd:       *cwd,
 		limit:     *limit,
 	})
 	if len(filtered) == 0 {
@@ -55,6 +57,7 @@ type filterOptions struct {
 	sessionID string
 	status    string
 	model     string
+	cwd       string
 	limit     int
 }
 
@@ -83,6 +86,9 @@ func matchesFilters(summary session.Summary, opts filterOptions) bool {
 		return false
 	}
 	if opts.model != "" && !strings.EqualFold(summary.Model, opts.model) {
+		return false
+	}
+	if opts.cwd != "" && summary.Cwd != opts.cwd {
 		return false
 	}
 	return true
