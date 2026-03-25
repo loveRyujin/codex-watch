@@ -171,7 +171,7 @@ func betterCandidate(a, b Candidate, opts MatchOptions) bool {
 	if a.State.StartedAt.Equal(b.State.StartedAt) {
 		return a.ModTime.After(b.ModTime)
 	}
-	return cmp.Compare(a.State.StartedAt.UnixNano(), b.State.StartedAt.UnixNano()) < 0
+	return cmp.Compare(a.State.StartedAt.UnixNano(), b.State.StartedAt.UnixNano()) > 0
 }
 
 func DetectMatchOptions(args []string, cwd string, startedAfter time.Time) MatchOptions {
@@ -234,7 +234,10 @@ func looksLikeSessionID(value string) bool {
 		return false
 	}
 	for _, part := range parts {
-		if _, err := strconv.ParseUint(part, 16, 64); err != nil && len(part) > 16 {
+		if len(part) == 0 || len(part) > 16 {
+			return false
+		}
+		if _, err := strconv.ParseUint(part, 16, 64); err != nil {
 			return false
 		}
 	}

@@ -1,6 +1,8 @@
 package session
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -36,5 +38,53 @@ func TestApplyTurnContextSetsModel(t *testing.T) {
 	}
 	if state.Cwd != "/home/lee/github/ReviewBot" {
 		t.Fatalf("cwd = %q", state.Cwd)
+	}
+}
+
+func TestReadSnapshotFromFixture(t *testing.T) {
+	path := filepath.Join("testdata", "session_a.jsonl")
+	state, _, err := readSnapshot(path)
+	if err != nil {
+		t.Fatalf("readSnapshot: %v", err)
+	}
+	if state.SessionID != "019d1440-dd2f-7c31-b925-3158ba82cb2f" {
+		t.Fatalf("session id = %q", state.SessionID)
+	}
+	if state.ThreadID != "thread-a" {
+		t.Fatalf("thread id = %q", state.ThreadID)
+	}
+	if state.Status != "success" {
+		t.Fatalf("status = %q", state.Status)
+	}
+	if state.LastStatus != "done" {
+		t.Fatalf("last status = %q", state.LastStatus)
+	}
+	if state.Model != "gpt-5" {
+		t.Fatalf("model = %q", state.Model)
+	}
+	if !state.EstimatedCostKnown {
+		t.Fatalf("expected estimated cost to be known")
+	}
+}
+
+func TestApplyEventReturnsErrorForInvalidJSON(t *testing.T) {
+	state := State{}
+	if err := ApplyEvent(&state, []byte(`{`)); err == nil {
+		t.Fatalf("expected parse error")
+	}
+}
+
+func TestReadSnapshotSkipsTrailingBlankLine(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	data, err := os.ReadFile(filepath.Join("testdata", "session_a.jsonl"))
+	if err != nil {
+		t.Fatalf("ReadFile fixture: %v", err)
+	}
+	if err := os.WriteFile(path, append(data, '\n', '\n'), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if _, _, err := readSnapshot(path); err != nil {
+		t.Fatalf("readSnapshot: %v", err)
 	}
 }
