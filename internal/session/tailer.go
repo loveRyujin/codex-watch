@@ -35,6 +35,14 @@ type MatchOptions struct {
 }
 
 func FindCandidate(root string, opts MatchOptions) (*Candidate, error) {
+	return findCandidate(root, opts, nil)
+}
+
+func FindCandidateWithDebug(root string, opts MatchOptions, debugf func(string, ...any)) (*Candidate, error) {
+	return findCandidate(root, opts, debugf)
+}
+
+func findCandidate(root string, opts MatchOptions, debugf func(string, ...any)) (*Candidate, error) {
 	paths, err := listJSONL(root)
 	if err != nil {
 		return nil, err
@@ -43,23 +51,30 @@ func FindCandidate(root string, opts MatchOptions) (*Candidate, error) {
 	for _, path := range paths {
 		state, modTime, err := readSnapshot(path)
 		if err != nil {
+			debugLog(debugf, "skip %s: snapshot read error: %v", path, err)
 			continue
 		}
 		if !hasSnapshotData(state) {
+			debugLog(debugf, "skip %s: no usable session data", path)
 			continue
 		}
 		if state.Cwd != "" && opts.CWD != "" && state.Cwd != opts.CWD {
+			debugLog(debugf, "skip %s: cwd mismatch candidate=%s wanted=%s", path, state.Cwd, opts.CWD)
 			continue
 		}
 		if opts.ExplicitSession != "" && state.SessionID != opts.ExplicitSession {
+			debugLog(debugf, "skip %s: session mismatch candidate=%s wanted=%s", path, state.SessionID, opts.ExplicitSession)
 			continue
 		}
 		if !matchByMode(state, modTime, opts) {
+			debugLog(debugf, "skip %s: outside match window started_at=%s mod_time=%s threshold=%s", path, formatDebugTime(state.StartedAt), formatDebugTime(modTime), opts.StartedAfter.Add(-15*time.Second).Format(time.RFC3339Nano))
 			continue
 		}
+		debugLog(debugf, "candidate %s: session=%s model=%s cwd=%s started_at=%s mod_time=%s", path, state.SessionID, state.Model, state.Cwd, formatDebugTime(state.StartedAt), formatDebugTime(modTime))
 		candidates = append(candidates, Candidate{Path: path, State: state, ModTime: modTime})
 	}
 	if len(candidates) == 0 {
+		debugLog(debugf, "no matching session candidates found")
 		return nil, nil
 	}
 	slices.SortFunc(candidates, func(a, b Candidate) int {
@@ -72,6 +87,7 @@ func FindCandidate(root string, opts MatchOptions) (*Candidate, error) {
 			return 0
 		}
 	})
+	debugLog(debugf, "selected candidate %s: session=%s model=%s cwd=%s started_at=%s mod_time=%s", candidates[0].Path, candidates[0].State.SessionID, candidates[0].State.Model, candidates[0].State.Cwd, formatDebugTime(candidates[0].State.StartedAt), formatDebugTime(candidates[0].ModTime))
 	return &candidates[0], nil
 }
 
@@ -138,7 +154,21 @@ func hasSnapshotData(state State) bool {
 		state.ThreadID != "" ||
 		state.Cwd != "" ||
 		(state.Model != "" && state.Model != "unknown") ||
-		state.LastEventAt.UnixNano() != 0
+		!state.LastEventAt.IsZero()
+}
+
+func debugLog(debugf func(string, ...any), format string, args ...any) {
+	if debugf == nil {
+		return
+	}
+	debugf(format, args...)
+}
+
+func formatDebugTime(ts time.Time) string {
+	if ts.IsZero() {
+		return "zero"
+	}
+	return ts.Format(time.RFC3339Nano)
 }
 
 func listJSONL(root string) ([]string, error) {

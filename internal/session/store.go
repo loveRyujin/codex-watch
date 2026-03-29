@@ -85,11 +85,22 @@ func ShouldSave(summary Summary) bool {
 	return summary.SessionID != "" ||
 		summary.ThreadID != "" ||
 		(summary.Model != "" && summary.Model != "unknown") ||
+		hasLifecycleData(summary) ||
 		summary.InputTokens > 0 ||
 		summary.CachedInputTokens > 0 ||
 		summary.OutputTokens > 0 ||
 		summary.ReasoningOutputTokens > 0 ||
 		summary.TotalTokens > 0
+}
+
+func hasLifecycleData(summary Summary) bool {
+	if summary.StartedAt.IsZero() {
+		return false
+	}
+	return !summary.EndedAt.IsZero() ||
+		summary.ElapsedMS > 0 ||
+		strings.TrimSpace(summary.Status) != "" ||
+		summary.ExitCode != 0
 }
 
 func summaryFileID(summary Summary) string {

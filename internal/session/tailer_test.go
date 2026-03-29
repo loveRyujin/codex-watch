@@ -1,8 +1,10 @@
 package session
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -110,6 +112,41 @@ func TestFindCandidateSkipsSnapshotWithoutUsableData(t *testing.T) {
 	}
 	if candidate.State.SessionID != "019d1440-dd2f-7c31-b925-3158ba82cb2f" {
 		t.Fatalf("session id = %q", candidate.State.SessionID)
+	}
+}
+
+func TestFindCandidateWithDebugLogsSkipReasonsAndSelection(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "broken.jsonl"), []byte("{oops}\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile broken: %v", err)
+	}
+	copyFixture(t, root, "session_a.jsonl")
+	copyFixture(t, root, "session_b.jsonl")
+
+	var logs []string
+	candidate, err := FindCandidateWithDebug(root, MatchOptions{
+		CWD:          "/tmp/project-a",
+		StartedAfter: time.Date(2026, 3, 22, 2, 30, 5, 0, time.UTC).Add(-30 * time.Second),
+		Mode:         MatchModeFresh,
+	}, func(format string, args ...any) {
+		logs = append(logs, fmt.Sprintf(format, args...))
+	})
+	if err != nil {
+		t.Fatalf("FindCandidateWithDebug: %v", err)
+	}
+	if candidate == nil {
+		t.Fatalf("expected candidate")
+	}
+	joined := strings.Join(logs, "\n")
+	for _, want := range []string{
+		"skip",
+		"no usable session data",
+		"candidate",
+		"selected candidate",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("debug logs missing %q:\n%s", want, joined)
+		}
 	}
 }
 

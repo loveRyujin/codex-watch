@@ -185,7 +185,7 @@ func watchSession(state *session.State, opts session.MatchOptions, debugf func(s
 		default:
 		}
 
-		candidate, err := session.FindCandidate(root, opts)
+		candidate, err := session.FindCandidateWithDebug(root, opts, debugf)
 		if err == nil && candidate != nil {
 			debugf("matched session file %s session_id=%s model=%s", candidate.Path, candidate.State.SessionID, candidate.State.Model)
 			state.Summary = candidate.State.Summary
