@@ -241,12 +241,16 @@ type statusRenderer struct {
 	terminal    *terminalOutput
 	isTerminal  bool
 	lastPrinted string
+	heightFn    func(*os.File) int
+	widthFn     func(*os.File) int
 }
 
 func newStatusRenderer(terminal *terminalOutput) *statusRenderer {
 	return &statusRenderer{
 		terminal:   terminal,
 		isTerminal: term.IsTerminal(int(terminal.out.Fd())),
+		heightFn:   terminalHeight,
+		widthFn:    terminalWidth,
 	}
 }
 
@@ -265,12 +269,7 @@ func (r *statusRenderer) Loop(state *session.State, done <-chan struct{}) {
 
 func (r *statusRenderer) Finish(state *session.State) {
 	if r.isTerminal && r.lastPrinted != "" {
-		r.terminal.withLock(func(out *os.File) {
-			fmt.Fprint(out, "\033[s")
-			fmt.Fprintf(out, "\033[%d;1H\033[2K", terminalHeight(out))
-			fmt.Fprint(out, "\033[u")
-			fmt.Fprintln(out)
-		})
+		r.clearBottomLine()
 	}
 	r.terminal.withLock(func(out *os.File) {
 		fmt.Fprintf(out, "codex-watch summary: %s\n", formatBar(state))
@@ -287,10 +286,18 @@ func (r *statusRenderer) render(state *session.State) {
 	}
 	r.lastPrinted = line
 	r.terminal.withLock(func(out *os.File) {
-		width := terminalWidth(out)
-		row := terminalHeight(out)
+		width := r.widthFn(out)
+		row := r.heightFn(out)
 		fmt.Fprint(out, "\033[s")
 		fmt.Fprintf(out, "\033[%d;1H\033[2K%s", row, truncate(line, width))
+		fmt.Fprint(out, "\033[u")
+	})
+}
+
+func (r *statusRenderer) clearBottomLine() {
+	r.terminal.withLock(func(out *os.File) {
+		fmt.Fprint(out, "\033[s")
+		fmt.Fprintf(out, "\033[%d;1H\033[2K", r.heightFn(out))
 		fmt.Fprint(out, "\033[u")
 	})
 }
