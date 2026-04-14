@@ -35,10 +35,16 @@ func Lookup(model string) (Prices, bool) {
 	if price, ok := table[model]; ok {
 		return price, true
 	}
+	var bestPrefix string
+	var bestPrices Prices
 	for prefix, price := range table {
-		if strings.HasPrefix(model, prefix) {
-			return price, true
+		if strings.HasPrefix(model, prefix) && len(prefix) > len(bestPrefix) {
+			bestPrefix = prefix
+			bestPrices = price
 		}
+	}
+	if bestPrefix != "" {
+		return bestPrices, true
 	}
 	return Prices{}, false
 }
